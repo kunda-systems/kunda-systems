@@ -1,0 +1,148 @@
+{
+  "name": "CryptoBot - Stop Global Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 * * * *"
+            }
+          ]
+        }
+      },
+      "name": "Toutes les heures",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://freqtrade-b:8080/api/v1/profit",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Récupérer P&L Compartiment B",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [470, 300],
+      "credentials": {
+        "httpBasicAuth": {
+          "name": "FreqtradeAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.profit_all_percent_mean }}",
+              "rightValue": -40,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "name": "Drawdown > 40% ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://freqtrade-b:8080/api/v1/stopbuy",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": {}
+      },
+      "name": "Mettre bot B en pause",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [910, 200],
+      "credentials": {
+        "httpBasicAuth": {
+          "name": "FreqtradeAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.SMTP_USER }}",
+        "toEmail": "={{ $env.REPORT_RECIPIENT_EMAIL }}",
+        "subject": "🚨 [ALERTE CRYPTOBOT] STOP GLOBAL DÉCLENCHÉ - Compartiment B",
+        "emailType": "text",
+        "message": "ALERTE STOP GLOBAL\n\nLe Compartiment B a atteint un drawdown de {{ $('Récupérer P&L Compartiment B').item.json.profit_all_percent_mean }}%.\n\nSeuil configuré : -40%\n\nAction automatique : Nouveaux achats suspendus (trades ouverts maintenus jusqu'à clôture naturelle).\n\nConnexion à FreqUI pour vérification manuelle :\n  ssh -L 8080:localhost:8080 root@VOTRE_IP_VPS\n  Puis : http://localhost:8080\n\nHeure de déclenchement : {{ $now.toISO() }}"
+      },
+      "name": "Email alerte stop global",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [910, 350],
+      "credentials": {
+        "smtp": {
+          "name": "SMTP"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Toutes les heures": {
+      "main": [
+        [
+          {
+            "node": "Récupérer P&L Compartiment B",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Récupérer P&L Compartiment B": {
+      "main": [
+        [
+          {
+            "node": "Drawdown > 40% ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drawdown > 40% ?": {
+      "main": [
+        [
+          {
+            "node": "Mettre bot B en pause",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email alerte stop global",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": ["cryptobot", "monitoring", "sécurité"]
+}

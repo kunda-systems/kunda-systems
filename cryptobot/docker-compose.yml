@@ -1,0 +1,137 @@
+version: "3.8"
+
+# ============================================================
+# CRYPTOBOT - Docker Compose
+# ============================================================
+# Services :
+#   - freqtrade-b   : Bot de trading actif (Compartiment B)
+#   - freqtrade-a   : DCA automatique (Compartiment A)
+#   - n8n           : Orchestration & automatisation
+#
+# Démarrage : docker compose up -d
+# Logs      : docker compose logs -f freqtrade-b
+# Arrêt     : docker compose down
+
+services:
+
+  # ── Compartiment B : Trading actif ────────────────────────────────────────
+  freqtrade-b:
+    image: freqtradeorg/freqtrade:stable
+    container_name: freqtrade_compartiment_b
+    restart: unless-stopped
+    environment:
+      - BINANCE_API_KEY=${BINANCE_API_KEY}
+      - BINANCE_API_SECRET=${BINANCE_API_SECRET}
+      - FREQTRADE_UI_USER=${FREQTRADE_UI_USER}
+      - FREQTRADE_UI_PASSWORD=${FREQTRADE_UI_PASSWORD}
+      - FREQTRADE_JWT_SECRET=${FREQTRADE_JWT_SECRET}
+      - FREQTRADE_WS_TOKEN=${FREQTRADE_WS_TOKEN}
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+    volumes:
+      - ./freqtrade/strategies:/freqtrade/user_data/strategies:ro
+      - ./freqtrade/config_compartiment_b.json:/freqtrade/user_data/config.json:ro
+      - freqtrade_b_data:/freqtrade/user_data
+    ports:
+      - "127.0.0.1:8080:8080"   # FreqUI - accessible en local uniquement
+    command: >
+      trade
+      --config /freqtrade/user_data/config.json
+      --strategy HybridADXStrategy
+      --logfile /freqtrade/user_data/logs/freqtrade_b.log
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ── Compartiment A : DCA long terme ───────────────────────────────────────
+  freqtrade-a:
+    image: freqtradeorg/freqtrade:stable
+    container_name: freqtrade_compartiment_a
+    restart: unless-stopped
+    environment:
+      - BINANCE_API_KEY=${BINANCE_API_KEY}
+      - BINANCE_API_SECRET=${BINANCE_API_SECRET}
+      - FREQTRADE_UI_USER=${FREQTRADE_UI_USER}
+      - FREQTRADE_UI_PASSWORD=${FREQTRADE_UI_PASSWORD}
+      - FREQTRADE_JWT_SECRET=${FREQTRADE_JWT_SECRET_A}
+      - FREQTRADE_WS_TOKEN=${FREQTRADE_WS_TOKEN_A}
+    volumes:
+      - ./freqtrade/strategies:/freqtrade/user_data/strategies:ro
+      - ./freqtrade/config_dca_compartiment_a.json:/freqtrade/user_data/config.json:ro
+      - freqtrade_a_data:/freqtrade/user_data
+    ports:
+      - "127.0.0.1:8081:8081"   # FreqUI Compartiment A
+    command: >
+      trade
+      --config /freqtrade/user_data/config.json
+      --strategy DCAStrategy
+      --logfile /freqtrade/user_data/logs/freqtrade_a.log
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/api/v1/ping"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    depends_on:
+      - freqtrade-b
+
+  # ── n8n : Orchestration & automatisation ──────────────────────────────────
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: cryptobot_n8n
+    restart: unless-stopped
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=${N8N_BASIC_AUTH_ACTIVE}
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PORT=${N8N_PORT}
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - GENERIC_TIMEZONE=Europe/Paris
+      # Variables injectées dans les workflows n8n
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GOOGLE_SHEETS_ID=${GOOGLE_SHEETS_ID}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - REPORT_RECIPIENT_EMAIL=${REPORT_RECIPIENT_EMAIL}
+      - FREQTRADE_UI_USER=${FREQTRADE_UI_USER}
+      - FREQTRADE_UI_PASSWORD=${FREQTRADE_UI_PASSWORD}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/home/node/workflows:ro
+      - ./reporting:/home/node/reporting:ro
+    ports:
+      - "127.0.0.1:5678:5678"   # Interface n8n - local uniquement
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+volumes:
+  freqtrade_b_data:
+    driver: local
+  freqtrade_a_data:
+    driver: local
+  n8n_data:
+    driver: local
+
+networks:
+  default:
+    name: cryptobot_network

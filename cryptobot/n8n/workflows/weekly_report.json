@@ -1,0 +1,109 @@
+{
+  "name": "CryptoBot - Rapport Hebdomadaire",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * 1"
+            }
+          ]
+        }
+      },
+      "name": "Chaque lundi 7h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "command": "cd /home/node/reporting && python3 weekly_report.py"
+      },
+      "name": "Générer rapport hebdomadaire",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.exitCode }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "name": "Succès ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.SMTP_USER }}",
+        "toEmail": "={{ $env.REPORT_RECIPIENT_EMAIL }}",
+        "subject": "⚠️ [CRYPTOBOT] Erreur génération rapport hebdomadaire",
+        "emailType": "text",
+        "message": "Une erreur s'est produite lors de la génération du rapport hebdomadaire.\n\nErreur : {{ $json.stderr }}\n\nVérifier les logs : docker compose logs n8n --tail 50"
+      },
+      "name": "Alerte erreur rapport",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [910, 400],
+      "credentials": {
+        "smtp": {
+          "name": "SMTP"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Chaque lundi 7h": {
+      "main": [
+        [
+          {
+            "node": "Générer rapport hebdomadaire",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Générer rapport hebdomadaire": {
+      "main": [
+        [
+          {
+            "node": "Succès ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Succès ?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Alerte erreur rapport",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": ["cryptobot", "reporting"]
+}

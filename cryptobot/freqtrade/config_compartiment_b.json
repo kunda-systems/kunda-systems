@@ -1,0 +1,147 @@
+{
+  "$schema": "https://schema.freqtrade.io/schema.json",
+
+  "max_open_trades": 3,
+  "stake_currency": "USDT",
+  "stake_amount": 60,
+  "tradable_balance_ratio": 0.99,
+  "fiat_display_currency": "EUR",
+
+  "timeframe": "1h",
+  "dry_run": true,
+  "dry_run_wallet": 500,
+  "cancel_open_orders_on_exit": false,
+
+  "trading_mode": "spot",
+  "margin_mode": "",
+
+  "unfilledtimeout": {
+    "entry": 10,
+    "exit": 30,
+    "exit_timeout_count": 0,
+    "unit": "minutes"
+  },
+
+  "entry_pricing": {
+    "price_side": "same",
+    "use_order_book": true,
+    "order_book_top": 1,
+    "price_last_balance": 0.0,
+    "check_depth_of_market": {
+      "enabled": false,
+      "bids_to_ask_delta": 1
+    }
+  },
+
+  "exit_pricing": {
+    "price_side": "same",
+    "use_order_book": true,
+    "order_book_top": 1
+  },
+
+  "exchange": {
+    "name": "binance",
+    "key": "${BINANCE_API_KEY}",
+    "secret": "${BINANCE_API_SECRET}",
+    "ccxt_config": {},
+    "ccxt_async_config": {},
+    "pair_whitelist": [
+      "BTC/USDT",
+      "ETH/USDT",
+      "SOL/USDT"
+    ],
+    "pair_blacklist": [
+      "BNB/.*"
+    ]
+  },
+
+  "pairlists": [
+    {
+      "method": "StaticPairList"
+    }
+  ],
+
+  "telegram": {
+    "enabled": false,
+    "token": "${TELEGRAM_TOKEN}",
+    "chat_id": "${TELEGRAM_CHAT_ID}",
+    "notification_settings": {
+      "status": "silent",
+      "warning": "on",
+      "startup": "off",
+      "entry": "silent",
+      "entry_fill": "on",
+      "entry_cancel": "silent",
+      "exit": {
+        "roi": "silent",
+        "emergency_exit": "on",
+        "force_exit": "on",
+        "exit_signal": "silent",
+        "trailing_stop_loss": "on",
+        "stop_loss": "on",
+        "stoploss_on_exchange": "on",
+        "custom_exit": "silent",
+        "partial_exit": "silent"
+      },
+      "exit_cancel": "on",
+      "exit_fill": "off",
+      "protection_trigger": "off",
+      "protection_trigger_global": "on"
+    },
+    "reload": true,
+    "balance_dust_level": 0.01
+  },
+
+  "api_server": {
+    "enabled": true,
+    "listen_ip_address": "0.0.0.0",
+    "listen_port": 8080,
+    "verbosity": "error",
+    "enable_openapi": false,
+    "jwt_secret_key": "${FREQTRADE_JWT_SECRET}",
+    "ws_token": "${FREQTRADE_WS_TOKEN}",
+    "CORS_origins": [],
+    "username": "${FREQTRADE_UI_USER}",
+    "password": "${FREQTRADE_UI_PASSWORD}"
+  },
+
+  "bot_name": "CryptoBot-CompartimentB",
+  "initial_state": "running",
+  "force_entry_enable": false,
+  "internals": {
+    "process_throttle_secs": 5
+  },
+
+  "strategy": "HybridADXStrategy",
+  "strategy_path": "/freqtrade/user_data/strategies/",
+  "db_url": "sqlite:////freqtrade/user_data/tradesv3_compartiment_b.sqlite",
+
+  "logfile": "/freqtrade/user_data/logs/freqtrade_compartiment_b.log",
+
+  "protections": [
+    {
+      "method": "StoplossGuard",
+      "lookback_period_candles": 24,
+      "trade_limit": 3,
+      "stop_duration_candles": 4,
+      "only_per_pair": false
+    },
+    {
+      "method": "MaxDrawdown",
+      "lookback_period_candles": 48,
+      "trade_limit": 5,
+      "stop_duration_candles": 12,
+      "max_allowed_drawdown": 0.30
+    },
+    {
+      "method": "LowProfitPairs",
+      "lookback_period_candles": 168,
+      "trade_limit": 3,
+      "stop_duration_candles": 48,
+      "required_profit": 0.0
+    }
+  ],
+
+  "_stop_global_threshold": -0.40,
+  "_comment_stop_global": "Si le portefeuille Compartiment B perd 40%, n8n met le bot en pause via API"
+}

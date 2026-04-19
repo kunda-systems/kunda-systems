@@ -1,0 +1,152 @@
+{
+  "name": "CryptoBot - Transfert Mensuel B→A + Rapport",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 1 * *"
+            }
+          ]
+        }
+      },
+      "name": "1er du mois à 6h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://freqtrade-b:8080/api/v1/profit",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": {}
+      },
+      "name": "Récupérer profits Compartiment B",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [470, 300],
+      "credentials": {
+        "httpBasicAuth": {
+          "name": "FreqtradeAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://freqtrade-b:8080/api/v1/balance",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": {}
+      },
+      "name": "Récupérer solde Compartiment B",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [470, 450],
+      "credentials": {
+        "httpBasicAuth": {
+          "name": "FreqtradeAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://freqtrade-a:8081/api/v1/balance",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": {}
+      },
+      "name": "Récupérer solde Compartiment A",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [470, 600],
+      "credentials": {
+        "httpBasicAuth": {
+          "name": "FreqtradeAuth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.SMTP_USER }}",
+        "toEmail": "={{ $env.REPORT_RECIPIENT_EMAIL }}",
+        "subject": "📊 [CRYPTOBOT] Action requise : Transfert mensuel B→A",
+        "emailType": "html",
+        "message": "<html><body style='font-family:Arial,sans-serif;max-width:600px'>\n<h2 style='color:#1a3c6e'>🔄 Transfert mensuel Compartiment B → A</h2>\n<p>Il est temps d'effectuer le transfert mensuel des gains du Compartiment B vers le Compartiment A.</p>\n\n<table style='width:100%;border-collapse:collapse;margin:20px 0'>\n  <tr style='background:#f0f0f0'><th style='padding:10px;text-align:left'>Métrique</th><th style='padding:10px;text-align:right'>Valeur</th></tr>\n  <tr><td style='padding:10px'>Profit total Compartiment B</td><td style='padding:10px;text-align:right'><strong>{{ $('Récupérer profits Compartiment B').item.json.profit_all_coin }} USDT</strong></td></tr>\n  <tr style='background:#f9f9f9'><td style='padding:10px'>Solde actuel Compartiment B</td><td style='padding:10px;text-align:right'>{{ $('Récupérer solde Compartiment B').item.json.total }} USDT</td></tr>\n  <tr><td style='padding:10px'>Solde Compartiment A</td><td style='padding:10px;text-align:right'>{{ $('Récupérer solde Compartiment A').item.json.total }} USDT</td></tr>\n</table>\n\n<div style='background:#fff3cd;border:1px solid #ffc107;padding:15px;border-radius:5px'>\n  <strong>⚠️ Action manuelle requise sur Binance :</strong><br>\n  1. Connectez-vous à votre compte Binance<br>\n  2. Transférez les gains de votre wallet Spot vers votre wallet de référence<br>\n  3. Le montant à transférer correspond aux profits réalisés ce mois<br>\n  4. Achetez ensuite BTC (60%) et ETH (40%) avec ce montant<br><br>\n  <em>Note : Le bot ne peut pas effectuer de retrait. La règle de sécurité s'applique.</em>\n</div>\n\n<p style='color:#888;font-size:12px;margin-top:20px'>Email généré automatiquement par CryptoBot via n8n.</p>\n</body></html>"
+      },
+      "name": "Email transfert mensuel",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [910, 300],
+      "credentials": {
+        "smtp": {
+          "name": "SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "cd /home/node/reporting && python3 monthly_report.py"
+      },
+      "name": "Générer rapport mensuel",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [910, 480]
+    }
+  ],
+  "connections": {
+    "1er du mois à 6h": {
+      "main": [
+        [
+          {
+            "node": "Récupérer profits Compartiment B",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Récupérer solde Compartiment B",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Récupérer solde Compartiment A",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Récupérer profits Compartiment B": {
+      "main": [
+        [
+          {
+            "node": "Email transfert mensuel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email transfert mensuel": {
+      "main": [
+        [
+          {
+            "node": "Générer rapport mensuel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": ["cryptobot", "transfert", "reporting"]
+}
